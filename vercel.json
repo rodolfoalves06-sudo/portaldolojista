@@ -1,0 +1,12 @@
+{
+  "framework": "nextjs",
+  "buildCommand": "npm run build",
+  "outputDirectory": ".next",
+  "installCommand": "npm install",
+  "env": {
+    "NEXT_PUBLIC_SUPABASE_URL": "https://xexoofzbamlgojrledek.supabase.co",
+    "NEXT_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhleG9vZnpiYW1sZ29qcmxlZGVrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg1NDAxNzUsImV4cCI6MjA5NDExNjE3NX0.1M1HtJeXH8-R4KT3EVbvZIOygLHIHcD3fn7qbopEVRE",
+    "NEXT_PUBLIC_WHATSAPP": "5519999562502",
+    "NEXT_PUBLIC_SITE_NAME": "Portal do Lojista Multimarcas"
+  }
+}
