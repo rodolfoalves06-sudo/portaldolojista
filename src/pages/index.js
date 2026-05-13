@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import Head from 'next/head'
+import ModalTrocarSenha from '../components/ModalTrocarSenha'
 
 export default function Home() {
   const [usuario, setUsuario] = useState(null)
@@ -17,6 +18,8 @@ export default function Home() {
   const [cartAberto, setCartAberto] = useState(false)
   const [aba, setAba] = useState('produtos')
   const [pagina, setPagina] = useState(1)
+  const [menuUsuario, setMenuUsuario] = useState(false)
+  const [modalSenha, setModalSenha] = useState(false)
   const POR_PAG = 20
 
   const marcas = [...new Set(produtos.map(p => p.marca).filter(Boolean))].sort()
@@ -33,6 +36,14 @@ export default function Home() {
   useEffect(() => {
     filtrar()
   }, [produtos, busca, filtroMarca, filtroEst])
+
+  useEffect(() => {
+    function fecharMenu(e) {
+      if (!e.target.closest('.user-menu-wrapper')) setMenuUsuario(false)
+    }
+    document.addEventListener('mousedown', fecharMenu)
+    return () => document.removeEventListener('mousedown', fecharMenu)
+  }, [])
 
   async function carregarProdutos() {
     const { data } = await supabase
@@ -84,6 +95,7 @@ export default function Home() {
     localStorage.removeItem('usuario_portal')
     setUsuario(null)
     setCarrinho([])
+    setMenuUsuario(false)
   }
 
   function addCarrinho(produto, qtd) {
@@ -110,7 +122,6 @@ export default function Home() {
   async function finalizarPedido() {
     if (!carrinho.length) return
 
-    // Salvar pedido no banco
     const { data: pedido } = await supabase.from('pedidos').insert({
       lojista_id: usuario.id,
       lojista_nome: usuario.nome,
@@ -137,7 +148,6 @@ export default function Home() {
       )
     }
 
-    // Enviar WhatsApp
     const wpp = process.env.NEXT_PUBLIC_WHATSAPP
     const data = new Date().toLocaleDateString('pt-BR')
     const linhas = [
@@ -160,9 +170,7 @@ export default function Home() {
     const msg = encodeURIComponent(linhas.join('\n'))
     window.open(`https://wa.me/55${wpp}?text=${msg}`, '_blank')
 
-    // Gerar PDF
     gerarPDF()
-
     setCarrinho([])
     setCartAberto(false)
     alert('Pedido enviado com sucesso! ✅')
@@ -260,10 +268,63 @@ export default function Home() {
         <meta name="theme-color" content="#0f2744" />
       </Head>
 
+      {modalSenha && (
+        <ModalTrocarSenha
+          usuario={usuario}
+          onFechar={(usuarioAtualizado) => {
+            if (usuarioAtualizado) setUsuario(usuarioAtualizado)
+            setModalSenha(false)
+            setMenuUsuario(false)
+          }}
+        />
+      )}
+
       <div className="topbar">
         <div className="topbar-brand">Portal do <span>Lojista</span></div>
         <div className="topbar-right">
-          <div className="user-pill">{usuario.nome}</div>
+
+          <div className="user-menu-wrapper" style={{ position: 'relative' }}>
+            <div className="user-pill" style={{ cursor: 'pointer', userSelect: 'none' }}
+              onClick={() => setMenuUsuario(v => !v)}>
+              {usuario.nome} ▾
+            </div>
+
+            {menuUsuario && (
+              <div style={{
+                position: 'absolute', top: '110%', right: 0,
+                backgroundColor: '#fff', borderRadius: 8,
+                boxShadow: '0 8px 24px rgba(0,0,0,0.15)',
+                minWidth: 180, zIndex: 999, overflow: 'hidden',
+              }}>
+                <div style={{ padding: '10px 16px', borderBottom: '1px solid #f3f4f6' }}>
+                  <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: '#0f2744' }}>{usuario.nome}</p>
+                  <p style={{ margin: 0, fontSize: 11, color: '#9ca3af' }}>{usuario.email}</p>
+                </div>
+                <button onClick={() => { setModalSenha(true); setMenuUsuario(false) }}
+                  style={{
+                    display: 'block', width: '100%', padding: '10px 16px',
+                    textAlign: 'left', background: 'none', border: 'none',
+                    fontSize: 13, cursor: 'pointer', color: '#374151',
+                  }}
+                  onMouseOver={e => e.target.style.backgroundColor = '#f9fafb'}
+                  onMouseOut={e => e.target.style.backgroundColor = 'transparent'}>
+                  🔐 Trocar senha
+                </button>
+                <button onClick={sair}
+                  style={{
+                    display: 'block', width: '100%', padding: '10px 16px',
+                    textAlign: 'left', background: 'none', border: 'none',
+                    fontSize: 13, cursor: 'pointer', color: '#ef4444',
+                    borderTop: '1px solid #f3f4f6',
+                  }}
+                  onMouseOver={e => e.target.style.backgroundColor = '#fef2f2'}
+                  onMouseOut={e => e.target.style.backgroundColor = 'transparent'}>
+                  🚪 Sair
+                </button>
+              </div>
+            )}
+          </div>
+
           <button className="cart-btn" onClick={() => setCartAberto(!cartAberto)}>
             🛒 Pedido <span className="cart-count">{carrinho.reduce((s,i)=>s+i.qtd,0)}</span>
           </button>
