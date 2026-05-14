@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import Head from 'next/head'
 import ModalTrocarSenha from '../components/ModalTrocarSenha'
-
+ 
 export default function Home() {
   const [usuario, setUsuario] = useState(null)
   const [email, setEmail] = useState('')
@@ -21,23 +21,24 @@ export default function Home() {
   const [menuUsuario, setMenuUsuario] = useState(false)
   const [modalSenha, setModalSenha] = useState(false)
   const [qtds, setQtds] = useState({})
+  const [fotoAtiva, setFotoAtiva] = useState({})
   const POR_PAG = 20
-
+ 
   const marcas = [...new Set(produtos.map(p => p.marca).filter(Boolean))].sort()
-
+ 
   useEffect(() => {
     const u = localStorage.getItem('usuario_portal')
     if (u) setUsuario(JSON.parse(u))
   }, [])
-
+ 
   useEffect(() => {
     if (usuario) carregarProdutos()
   }, [usuario])
-
+ 
   useEffect(() => {
     filtrar()
   }, [produtos, busca, filtroMarca, filtroEst])
-
+ 
   useEffect(() => {
     function fecharMenu(e) {
       if (!e.target.closest('.user-menu-wrapper')) setMenuUsuario(false)
@@ -45,7 +46,7 @@ export default function Home() {
     document.addEventListener('mousedown', fecharMenu)
     return () => document.removeEventListener('mousedown', fecharMenu)
   }, [])
-
+ 
   async function carregarProdutos() {
     const { data } = await supabase
       .from('produtos')
@@ -54,7 +55,7 @@ export default function Home() {
       .order('marca')
     if (data) setProdutos(data)
   }
-
+ 
   function filtrar() {
     let r = [...produtos]
     if (filtroMarca) r = r.filter(p => p.marca === filtroMarca)
@@ -72,15 +73,12 @@ export default function Home() {
     setFiltrados(r)
     setPagina(1)
   }
-
-  function getQtd(id) {
-    return qtds[id] || 1
-  }
-
-  function setQtd(id, val) {
-    setQtds(prev => ({ ...prev, [id]: Math.max(1, val) }))
-  }
-
+ 
+  function getQtd(id) { return qtds[id] || 1 }
+  function setQtd(id, val) { setQtds(prev => ({ ...prev, [id]: Math.max(1, val) })) }
+  function getFotoAtiva(id) { return fotoAtiva[id] || 0 }
+  function setFotoAtivaP(id, idx) { setFotoAtiva(prev => ({ ...prev, [id]: idx })) }
+ 
   async function fazerLogin() {
     setErro('')
     setCarregando(true)
@@ -90,7 +88,6 @@ export default function Home() {
       .eq('email', email)
       .eq('ativo', true)
       .single()
-
     if (data && data.senha_hash === senha) {
       localStorage.setItem('usuario_portal', JSON.stringify(data))
       setUsuario(data)
@@ -99,14 +96,14 @@ export default function Home() {
     }
     setCarregando(false)
   }
-
+ 
   function sair() {
     localStorage.removeItem('usuario_portal')
     setUsuario(null)
     setCarrinho([])
     setMenuUsuario(false)
   }
-
+ 
   function addCarrinho(produto, qtd) {
     setCarrinho(prev => {
       const ex = prev.find(i => i.id === produto.id)
@@ -115,22 +112,13 @@ export default function Home() {
     })
     setCartAberto(true)
   }
-
-  function rmCarrinho(id) {
-    setCarrinho(prev => prev.filter(i => i.id !== id))
-  }
-
-  function totalVista() {
-    return carrinho.reduce((s, i) => s + (i.preco_vista || 0) * i.qtd, 0)
-  }
-
-  function totalPrazo() {
-    return carrinho.reduce((s, i) => s + (i.preco_prazo || 0) * i.qtd, 0)
-  }
-
+ 
+  function rmCarrinho(id) { setCarrinho(prev => prev.filter(i => i.id !== id)) }
+  function totalVista() { return carrinho.reduce((s, i) => s + (i.preco_vista || 0) * i.qtd, 0) }
+  function totalPrazo() { return carrinho.reduce((s, i) => s + (i.preco_prazo || 0) * i.qtd, 0) }
+ 
   async function finalizarPedido() {
     if (!carrinho.length) return
-
     const { data: pedido } = await supabase.from('pedidos').insert({
       lojista_id: usuario.id,
       lojista_nome: usuario.nome,
@@ -139,7 +127,6 @@ export default function Home() {
       total_prazo: totalPrazo(),
       status: 'novo'
     }).select().single()
-
     if (pedido) {
       await supabase.from('pedido_itens').insert(
         carrinho.map(i => ({
@@ -156,17 +143,9 @@ export default function Home() {
         }))
       )
     }
-
     const wpp = process.env.NEXT_PUBLIC_WHATSAPP
     const data = new Date().toLocaleDateString('pt-BR')
-    const linhas = [
-      `*🛒 Novo Pedido — Portal do Lojista Multimarcas*`,
-      ``,
-      `Lojista: *${usuario.nome}*`,
-      `Email: ${usuario.email}`,
-      `Data: ${data}`,
-      ``,
-    ]
+    const linhas = [`*🛒 Novo Pedido — Portal do Lojista Multimarcas*`, ``, `Lojista: *${usuario.nome}*`, `Email: ${usuario.email}`, `Data: ${data}`, ``]
     carrinho.forEach(i => {
       linhas.push(`• *${i.nome}*`)
       linhas.push(`  Marca: ${i.marca} | Cód: ${i.codigo}`)
@@ -175,16 +154,14 @@ export default function Home() {
     })
     linhas.push(`*Total à vista: R$ ${totalVista().toLocaleString('pt-BR')}*`)
     linhas.push(`*Total a prazo: R$ ${totalPrazo().toLocaleString('pt-BR')}*`)
-
     const msg = encodeURIComponent(linhas.join('\n'))
     window.open(`https://wa.me/55${wpp}?text=${msg}`, '_blank')
-
     gerarPDF()
     setCarrinho([])
     setCartAberto(false)
     alert('Pedido enviado com sucesso! ✅')
   }
-
+ 
   function gerarPDF() {
     import('jspdf').then(({ default: jsPDF }) => {
       import('jspdf-autotable').then(() => {
@@ -199,19 +176,8 @@ export default function Home() {
         doc.autoTable({
           startY: 44,
           head: [['Código', 'Produto', 'Marca', 'Qtd', 'À vista', 'A prazo']],
-          body: carrinho.map(i => [
-            i.codigo,
-            i.nome.substring(0, 30),
-            i.marca,
-            i.qtd,
-            `R$ ${((i.preco_vista || 0) * i.qtd).toLocaleString('pt-BR')}`,
-            `R$ ${((i.preco_prazo || 0) * i.qtd).toLocaleString('pt-BR')}`,
-          ]),
-          foot: [[
-            '', '', '', '',
-            `R$ ${totalVista().toLocaleString('pt-BR')}`,
-            `R$ ${totalPrazo().toLocaleString('pt-BR')}`,
-          ]],
+          body: carrinho.map(i => [i.codigo, i.nome.substring(0, 30), i.marca, i.qtd, `R$ ${((i.preco_vista || 0) * i.qtd).toLocaleString('pt-BR')}`, `R$ ${((i.preco_prazo || 0) * i.qtd).toLocaleString('pt-BR')}`]),
+          foot: [['', '', '', '', `R$ ${totalVista().toLocaleString('pt-BR')}`, `R$ ${totalPrazo().toLocaleString('pt-BR')}`]],
           headStyles: { fillColor: [15, 39, 68] },
           footStyles: { fillColor: [200, 146, 42], textColor: [15, 39, 68], fontStyle: 'bold' },
         })
@@ -219,10 +185,10 @@ export default function Home() {
       })
     })
   }
-
+ 
   const paginado = filtrados.slice((pagina - 1) * POR_PAG, pagina * POR_PAG)
   const totalPag = Math.ceil(filtrados.length / POR_PAG)
-
+ 
   function catIcon(cat = '') {
     if (cat.includes('CARRINHO')) return '🛒'
     if (cat.includes('BOUNCER')) return '🪑'
@@ -232,7 +198,7 @@ export default function Home() {
     if (cat.includes('REFEICAO') || cat.includes('REFEIÇÃO')) return '🍽️'
     return '💺'
   }
-
+ 
   if (!usuario) return (
     <>
       <Head>
@@ -267,7 +233,7 @@ export default function Home() {
       </div>
     </>
   )
-
+ 
   return (
     <>
       <Head>
@@ -276,7 +242,7 @@ export default function Home() {
         <link rel="manifest" href="/manifest.json" />
         <meta name="theme-color" content="#0f2744" />
       </Head>
-
+ 
       {modalSenha && (
         <ModalTrocarSenha
           usuario={usuario}
@@ -287,45 +253,29 @@ export default function Home() {
           }}
         />
       )}
-
+ 
       <div className="topbar">
         <div className="topbar-brand">Portal do <span>Lojista</span></div>
         <div className="topbar-right">
-
           <div className="user-menu-wrapper" style={{ position: 'relative' }}>
             <div className="user-pill" style={{ cursor: 'pointer', userSelect: 'none' }}
               onClick={() => setMenuUsuario(v => !v)}>
               {usuario.nome} ▾
             </div>
-
             {menuUsuario && (
-              <div style={{
-                position: 'absolute', top: '110%', right: 0,
-                backgroundColor: '#fff', borderRadius: 8,
-                boxShadow: '0 8px 24px rgba(0,0,0,0.15)',
-                minWidth: 180, zIndex: 999, overflow: 'hidden',
-              }}>
+              <div style={{ position: 'absolute', top: '110%', right: 0, backgroundColor: '#fff', borderRadius: 8, boxShadow: '0 8px 24px rgba(0,0,0,0.15)', minWidth: 180, zIndex: 999, overflow: 'hidden' }}>
                 <div style={{ padding: '10px 16px', borderBottom: '1px solid #f3f4f6' }}>
                   <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: '#0f2744' }}>{usuario.nome}</p>
                   <p style={{ margin: 0, fontSize: 11, color: '#9ca3af' }}>{usuario.email}</p>
                 </div>
                 <button onClick={() => { setModalSenha(true); setMenuUsuario(false) }}
-                  style={{
-                    display: 'block', width: '100%', padding: '10px 16px',
-                    textAlign: 'left', background: 'none', border: 'none',
-                    fontSize: 13, cursor: 'pointer', color: '#374151',
-                  }}
+                  style={{ display: 'block', width: '100%', padding: '10px 16px', textAlign: 'left', background: 'none', border: 'none', fontSize: 13, cursor: 'pointer', color: '#374151' }}
                   onMouseOver={e => e.target.style.backgroundColor = '#f9fafb'}
                   onMouseOut={e => e.target.style.backgroundColor = 'transparent'}>
                   🔐 Trocar senha
                 </button>
                 <button onClick={sair}
-                  style={{
-                    display: 'block', width: '100%', padding: '10px 16px',
-                    textAlign: 'left', background: 'none', border: 'none',
-                    fontSize: 13, cursor: 'pointer', color: '#ef4444',
-                    borderTop: '1px solid #f3f4f6',
-                  }}
+                  style={{ display: 'block', width: '100%', padding: '10px 16px', textAlign: 'left', background: 'none', border: 'none', fontSize: 13, cursor: 'pointer', color: '#ef4444', borderTop: '1px solid #f3f4f6' }}
                   onMouseOver={e => e.target.style.backgroundColor = '#fef2f2'}
                   onMouseOut={e => e.target.style.backgroundColor = 'transparent'}>
                   🚪 Sair
@@ -333,21 +283,20 @@ export default function Home() {
               </div>
             )}
           </div>
-
           <button className="cart-btn" onClick={() => setCartAberto(!cartAberto)}>
             🛒 Pedido <span className="cart-count">{carrinho.reduce((s,i)=>s+i.qtd,0)}</span>
           </button>
           <button className="btn-sair" onClick={sair}>Sair</button>
         </div>
       </div>
-
+ 
       <div className="nav-tabs">
         <div className={`nav-tab ${aba==='produtos'?'active':''}`} onClick={() => setAba('produtos')}>Produtos</div>
         {usuario.role === 'admin' && (
           <div className={`nav-tab ${aba==='admin'?'active':''}`} onClick={() => setAba('admin')}>Admin</div>
         )}
       </div>
-
+ 
       {cartAberto && carrinho.length > 0 && (
         <div className="cart-panel">
           <div className="cart-header">
@@ -378,7 +327,7 @@ export default function Home() {
           </div>
         </div>
       )}
-
+ 
       {aba === 'produtos' && (
         <>
           <div className="search-area">
@@ -394,26 +343,50 @@ export default function Home() {
               <option value="zero">Sem estoque</option>
             </select>
           </div>
-
+ 
           <div className="content">
             <div className="stats-bar">
               <div className="stat-badge"><strong>{filtrados.length}</strong> produtos</div>
               <div className="stat-badge"><strong>{filtrados.filter(p=>p.estoque>0).length}</strong> com estoque</div>
               <div className="stat-badge"><strong>{filtrados.filter(p=>p.estoque===0).length}</strong> sem estoque</div>
             </div>
-
+ 
             <div className="produtos-grid">
               {paginado.map(p => {
-                const fotos = p.produto_fotos || []
-                const foto = fotos.sort((a,b)=>a.ordem-b.ordem)[0]
+                const fotos = (p.produto_fotos || []).sort((a,b) => a.ordem - b.ordem)
+                const idxAtivo = getFotoAtiva(p.id)
+                const fotoExibida = fotos[idxAtivo]
                 const eC = p.estoque === 0 ? 'est-zero' : p.estoque <= 10 ? 'est-baixo' : 'est-ok'
                 const eT = p.estoque === 0 ? 'Sem estoque' : p.estoque >= 200 ? '200+ un.' : p.estoque <= 10 ? `${p.estoque} un. (baixo)` : `${p.estoque} un.`
-
+ 
                 return (
                   <div className="produto-card" key={p.id}>
-                    <div className="produto-img">
-                      {foto ? (
-                        <img src={foto.url} alt={p.nome} />
+                    <div className="produto-img" style={{ position: 'relative' }}>
+                      {fotoExibida ? (
+                        <>
+                          <img src={fotoExibida.url} alt={p.nome} />
+                          {fotos.length > 1 && (
+                            <>
+                              {/* Botão anterior */}
+                              <button onClick={() => setFotoAtivaP(p.id, (idxAtivo - 1 + fotos.length) % fotos.length)}
+                                style={{ position: 'absolute', left: 4, top: '50%', transform: 'translateY(-50%)', background: 'rgba(0,0,0,0.4)', border: 'none', borderRadius: '50%', width: 28, height: 28, color: '#fff', cursor: 'pointer', fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2 }}>
+                                ‹
+                              </button>
+                              {/* Botão próximo */}
+                              <button onClick={() => setFotoAtivaP(p.id, (idxAtivo + 1) % fotos.length)}
+                                style={{ position: 'absolute', right: 4, top: '50%', transform: 'translateY(-50%)', background: 'rgba(0,0,0,0.4)', border: 'none', borderRadius: '50%', width: 28, height: 28, color: '#fff', cursor: 'pointer', fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2 }}>
+                                ›
+                              </button>
+                              {/* Indicadores */}
+                              <div style={{ position: 'absolute', bottom: 6, left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: 4, zIndex: 2 }}>
+                                {fotos.map((_, i) => (
+                                  <div key={i} onClick={() => setFotoAtivaP(p.id, i)}
+                                    style={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: i === idxAtivo ? '#c8922a' : 'rgba(255,255,255,0.7)', cursor: 'pointer', transition: 'background 0.2s' }} />
+                                ))}
+                              </div>
+                            </>
+                          )}
+                        </>
                       ) : (
                         <div className="produto-img-placeholder">{catIcon(p.categoria)}</div>
                       )}
@@ -457,7 +430,7 @@ export default function Home() {
                 )
               })}
             </div>
-
+ 
             {totalPag > 1 && (
               <div className="paginacao">
                 <button className="pg-btn" disabled={pagina===1} onClick={() => setPagina(p=>p-1)}>← Anterior</button>
@@ -468,7 +441,7 @@ export default function Home() {
           </div>
         </>
       )}
-
+ 
       {aba === 'admin' && usuario.role === 'admin' && (
         <div className="content">
           <AdminPanel onProdutoSalvo={carregarProdutos} />
@@ -477,26 +450,21 @@ export default function Home() {
     </>
   )
 }
-
+ 
 function AdminPanel({ onProdutoSalvo }) {
-  const [form, setForm] = useState({
-    codigo: '', nome: '', marca: '', categoria: '',
-    descricao: '', preco_vista: '', preco_prazo: '', estoque: ''
-  })
+  const [form, setForm] = useState({ codigo: '', nome: '', marca: '', categoria: '', descricao: '', preco_vista: '', preco_prazo: '', estoque: '' })
   const [salvando, setSalvando] = useState(false)
   const [msg, setMsg] = useState('')
   const [lojistas, setLojistas] = useState([])
   const [novoLojista, setNovoLojista] = useState({ nome: '', email: '', senha: '' })
-
-  useEffect(() => {
-    carregarLojistas()
-  }, [])
-
+ 
+  useEffect(() => { carregarLojistas() }, [])
+ 
   async function carregarLojistas() {
     const { data } = await supabase.from('usuarios').select('*').eq('role', 'lojista')
     if (data) setLojistas(data)
   }
-
+ 
   async function salvarProduto() {
     setSalvando(true)
     const { error } = await supabase.from('produtos').upsert({
@@ -505,7 +473,6 @@ function AdminPanel({ onProdutoSalvo }) {
       preco_prazo: form.preco_prazo ? parseFloat(form.preco_prazo) : null,
       estoque: parseInt(form.estoque) || 0,
     }, { onConflict: 'codigo' })
-
     if (!error) {
       setMsg('✅ Produto salvo com sucesso!')
       setForm({ codigo:'',nome:'',marca:'',categoria:'',descricao:'',preco_vista:'',preco_prazo:'',estoque:'' })
@@ -516,19 +483,15 @@ function AdminPanel({ onProdutoSalvo }) {
     setSalvando(false)
     setTimeout(() => setMsg(''), 3000)
   }
-
+ 
   async function adicionarLojista() {
-    const { error } = await supabase.from('usuarios').insert({
-      ...novoLojista,
-      senha_hash: novoLojista.senha,
-      role: 'lojista'
-    })
+    const { error } = await supabase.from('usuarios').insert({ ...novoLojista, senha_hash: novoLojista.senha, role: 'lojista' })
     if (!error) {
       setNovoLojista({ nome: '', email: '', senha: '' })
       carregarLojistas()
     }
   }
-
+ 
   return (
     <div className="admin-grid">
       <div className="admin-card">
@@ -544,34 +507,19 @@ function AdminPanel({ onProdutoSalvo }) {
           <textarea value={form.descricao} onChange={e => setForm({...form,descricao:e.target.value})} />
         </div>
         <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:8 }}>
-          <div className="form-field">
-            <label>Preço à vista</label>
-            <input type="number" value={form.preco_vista} onChange={e => setForm({...form,preco_vista:e.target.value})} />
-          </div>
-          <div className="form-field">
-            <label>Preço a prazo</label>
-            <input type="number" value={form.preco_prazo} onChange={e => setForm({...form,preco_prazo:e.target.value})} />
-          </div>
-          <div className="form-field">
-            <label>Estoque</label>
-            <input type="number" value={form.estoque} onChange={e => setForm({...form,estoque:e.target.value})} />
-          </div>
+          <div className="form-field"><label>Preço à vista</label><input type="number" value={form.preco_vista} onChange={e => setForm({...form,preco_vista:e.target.value})} /></div>
+          <div className="form-field"><label>Preço a prazo</label><input type="number" value={form.preco_prazo} onChange={e => setForm({...form,preco_prazo:e.target.value})} /></div>
+          <div className="form-field"><label>Estoque</label><input type="number" value={form.estoque} onChange={e => setForm({...form,estoque:e.target.value})} /></div>
         </div>
         {msg && <p style={{ fontSize:13, marginBottom:8 }}>{msg}</p>}
-        <button className="btn-save" onClick={salvarProduto} disabled={salvando}>
-          {salvando ? 'Salvando...' : 'Salvar Produto'}
-        </button>
+        <button className="btn-save" onClick={salvarProduto} disabled={salvando}>{salvando ? 'Salvando...' : 'Salvar Produto'}</button>
       </div>
-
       <div className="admin-card">
         <h3>Lojistas Cadastrados ({lojistas.length})</h3>
         <div style={{ marginBottom:16 }}>
-          <div className="form-field"><label>Nome</label>
-            <input value={novoLojista.nome} onChange={e => setNovoLojista({...novoLojista,nome:e.target.value})} /></div>
-          <div className="form-field"><label>Email</label>
-            <input value={novoLojista.email} onChange={e => setNovoLojista({...novoLojista,email:e.target.value})} /></div>
-          <div className="form-field"><label>Senha</label>
-            <input type="password" value={novoLojista.senha} onChange={e => setNovoLojista({...novoLojista,senha:e.target.value})} /></div>
+          <div className="form-field"><label>Nome</label><input value={novoLojista.nome} onChange={e => setNovoLojista({...novoLojista,nome:e.target.value})} /></div>
+          <div className="form-field"><label>Email</label><input value={novoLojista.email} onChange={e => setNovoLojista({...novoLojista,email:e.target.value})} /></div>
+          <div className="form-field"><label>Senha</label><input type="password" value={novoLojista.senha} onChange={e => setNovoLojista({...novoLojista,senha:e.target.value})} /></div>
           <button className="btn-save" onClick={adicionarLojista}>Adicionar Lojista</button>
         </div>
         <div style={{ maxHeight:300, overflowY:'auto' }}>
@@ -586,3 +534,4 @@ function AdminPanel({ onProdutoSalvo }) {
     </div>
   )
 }
+ 
