@@ -20,6 +20,7 @@ export default function Home() {
   const [pagina, setPagina] = useState(1)
   const [menuUsuario, setMenuUsuario] = useState(false)
   const [modalSenha, setModalSenha] = useState(false)
+  const [qtds, setQtds] = useState({})
   const POR_PAG = 20
 
   const marcas = [...new Set(produtos.map(p => p.marca).filter(Boolean))].sort()
@@ -70,6 +71,14 @@ export default function Home() {
     }
     setFiltrados(r)
     setPagina(1)
+  }
+
+  function getQtd(id) {
+    return qtds[id] || 1
+  }
+
+  function setQtd(id, val) {
+    setQtds(prev => ({ ...prev, [id]: Math.max(1, val) }))
   }
 
   async function fazerLogin() {
@@ -399,7 +408,6 @@ export default function Home() {
                 const foto = fotos.sort((a,b)=>a.ordem-b.ordem)[0]
                 const eC = p.estoque === 0 ? 'est-zero' : p.estoque <= 10 ? 'est-baixo' : 'est-ok'
                 const eT = p.estoque === 0 ? 'Sem estoque' : p.estoque >= 200 ? '200+ un.' : p.estoque <= 10 ? `${p.estoque} un. (baixo)` : `${p.estoque} un.`
-                const [qtd, setQtd] = useState(1)
 
                 return (
                   <div className="produto-card" key={p.id}>
@@ -434,13 +442,13 @@ export default function Home() {
                       </span>
                       <div className="add-row">
                         <div className="qtd-ctrl">
-                          <button className="qtd-btn" onClick={() => setQtd(q => Math.max(1, q-1))}>−</button>
-                          <input className="qtd-num" type="number" value={qtd} min={1}
-                            onChange={e => setQtd(Math.max(1, parseInt(e.target.value)||1))} />
-                          <button className="qtd-btn" onClick={() => setQtd(q => q+1)}>+</button>
+                          <button className="qtd-btn" onClick={() => setQtd(p.id, getQtd(p.id) - 1)}>−</button>
+                          <input className="qtd-num" type="number" value={getQtd(p.id)} min={1}
+                            onChange={e => setQtd(p.id, parseInt(e.target.value)||1)} />
+                          <button className="qtd-btn" onClick={() => setQtd(p.id, getQtd(p.id) + 1)}>+</button>
                         </div>
                         <button className="btn-add" disabled={p.estoque===0}
-                          onClick={() => addCarrinho(p, qtd)}>
+                          onClick={() => addCarrinho(p, getQtd(p.id))}>
                           {p.estoque===0 ? 'Sem estoque' : '+ Pedido'}
                         </button>
                       </div>
