@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import Head from 'next/head'
 import ModalTrocarSenha from '../components/ModalTrocarSenha'
- 
+
 export default function Home() {
   const [usuario, setUsuario] = useState(null)
   const [email, setEmail] = useState('')
@@ -22,23 +22,24 @@ export default function Home() {
   const [modalSenha, setModalSenha] = useState(false)
   const [qtds, setQtds] = useState({})
   const [fotoAtiva, setFotoAtiva] = useState({})
+  const [zoom, setZoom] = useState(null) // { fotos, idx }
   const POR_PAG = 20
- 
+
   const marcas = [...new Set(produtos.map(p => p.marca).filter(Boolean))].sort()
- 
+
   useEffect(() => {
     const u = localStorage.getItem('usuario_portal')
     if (u) setUsuario(JSON.parse(u))
   }, [])
- 
+
   useEffect(() => {
     if (usuario) carregarProdutos()
   }, [usuario])
- 
+
   useEffect(() => {
     filtrar()
   }, [produtos, busca, filtroMarca, filtroEst])
- 
+
   useEffect(() => {
     function fecharMenu(e) {
       if (!e.target.closest('.user-menu-wrapper')) setMenuUsuario(false)
@@ -46,7 +47,19 @@ export default function Home() {
     document.addEventListener('mousedown', fecharMenu)
     return () => document.removeEventListener('mousedown', fecharMenu)
   }, [])
- 
+
+  // Fechar zoom com ESC
+  useEffect(() => {
+    function handleKey(e) {
+      if (!zoom) return
+      if (e.key === 'Escape') setZoom(null)
+      if (e.key === 'ArrowRight') setZoom(z => ({ ...z, idx: (z.idx + 1) % z.fotos.length }))
+      if (e.key === 'ArrowLeft') setZoom(z => ({ ...z, idx: (z.idx - 1 + z.fotos.length) % z.fotos.length }))
+    }
+    window.addEventListener('keydown', handleKey)
+    return () => window.removeEventListener('keydown', handleKey)
+  }, [zoom])
+
   async function carregarProdutos() {
     const { data } = await supabase
       .from('produtos')
@@ -55,7 +68,7 @@ export default function Home() {
       .order('marca')
     if (data) setProdutos(data)
   }
- 
+
   function filtrar() {
     let r = [...produtos]
     if (filtroMarca) r = r.filter(p => p.marca === filtroMarca)
@@ -73,12 +86,12 @@ export default function Home() {
     setFiltrados(r)
     setPagina(1)
   }
- 
+
   function getQtd(id) { return qtds[id] || 1 }
   function setQtd(id, val) { setQtds(prev => ({ ...prev, [id]: Math.max(1, val) })) }
   function getFotoAtiva(id) { return fotoAtiva[id] || 0 }
   function setFotoAtivaP(id, idx) { setFotoAtiva(prev => ({ ...prev, [id]: idx })) }
- 
+
   async function fazerLogin() {
     setErro('')
     setCarregando(true)
@@ -96,14 +109,14 @@ export default function Home() {
     }
     setCarregando(false)
   }
- 
+
   function sair() {
     localStorage.removeItem('usuario_portal')
     setUsuario(null)
     setCarrinho([])
     setMenuUsuario(false)
   }
- 
+
   function addCarrinho(produto, qtd) {
     setCarrinho(prev => {
       const ex = prev.find(i => i.id === produto.id)
@@ -112,11 +125,11 @@ export default function Home() {
     })
     setCartAberto(true)
   }
- 
+
   function rmCarrinho(id) { setCarrinho(prev => prev.filter(i => i.id !== id)) }
   function totalVista() { return carrinho.reduce((s, i) => s + (i.preco_vista || 0) * i.qtd, 0) }
   function totalPrazo() { return carrinho.reduce((s, i) => s + (i.preco_prazo || 0) * i.qtd, 0) }
- 
+
   async function finalizarPedido() {
     if (!carrinho.length) return
     const { data: pedido } = await supabase.from('pedidos').insert({
@@ -161,7 +174,7 @@ export default function Home() {
     setCartAberto(false)
     alert('Pedido enviado com sucesso! ✅')
   }
- 
+
   function gerarPDF() {
     import('jspdf').then(({ default: jsPDF }) => {
       import('jspdf-autotable').then(() => {
@@ -185,10 +198,10 @@ export default function Home() {
       })
     })
   }
- 
+
   const paginado = filtrados.slice((pagina - 1) * POR_PAG, pagina * POR_PAG)
   const totalPag = Math.ceil(filtrados.length / POR_PAG)
- 
+
   function catIcon(cat = '') {
     if (cat.includes('CARRINHO')) return '🛒'
     if (cat.includes('BOUNCER')) return '🪑'
@@ -198,7 +211,7 @@ export default function Home() {
     if (cat.includes('REFEICAO') || cat.includes('REFEIÇÃO')) return '🍽️'
     return '💺'
   }
- 
+
   if (!usuario) return (
     <>
       <Head>
@@ -233,7 +246,7 @@ export default function Home() {
       </div>
     </>
   )
- 
+
   return (
     <>
       <Head>
@@ -242,7 +255,58 @@ export default function Home() {
         <link rel="manifest" href="/manifest.json" />
         <meta name="theme-color" content="#0f2744" />
       </Head>
- 
+
+      {/* ===== MODAL ZOOM ===== */}
+      {zoom && (
+        <div onClick={() => setZoom(null)}
+          style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.92)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          
+          {/* Fechar */}
+          <button onClick={() => setZoom(null)}
+            style={{ position: 'absolute', top: 16, right: 20, background: 'none', border: 'none', color: '#fff', fontSize: 36, cursor: 'pointer', lineHeight: 1, zIndex: 2001 }}>
+            ×
+          </button>
+
+          {/* Contador */}
+          <div style={{ position: 'absolute', top: 20, left: '50%', transform: 'translateX(-50%)', color: '#fff', fontSize: 14, opacity: 0.8 }}>
+            {zoom.idx + 1} / {zoom.fotos.length}
+          </div>
+
+          {/* Botão anterior */}
+          {zoom.fotos.length > 1 && (
+            <button onClick={e => { e.stopPropagation(); setZoom(z => ({ ...z, idx: (z.idx - 1 + z.fotos.length) % z.fotos.length })) }}
+              style={{ position: 'absolute', left: 16, background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: '50%', width: 48, height: 48, color: '#fff', cursor: 'pointer', fontSize: 24, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2001 }}>
+              ‹
+            </button>
+          )}
+
+          {/* Imagem */}
+          <img src={zoom.fotos[zoom.idx].url} alt=""
+            onClick={e => e.stopPropagation()}
+            style={{ maxWidth: '90vw', maxHeight: '85vh', objectFit: 'contain', borderRadius: 8, boxShadow: '0 20px 60px rgba(0,0,0,0.5)' }} />
+
+          {/* Botão próximo */}
+          {zoom.fotos.length > 1 && (
+            <button onClick={e => { e.stopPropagation(); setZoom(z => ({ ...z, idx: (z.idx + 1) % z.fotos.length })) }}
+              style={{ position: 'absolute', right: 16, background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: '50%', width: 48, height: 48, color: '#fff', cursor: 'pointer', fontSize: 24, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2001 }}>
+            ›
+            </button>
+          )}
+
+          {/* Miniaturas */}
+          {zoom.fotos.length > 1 && (
+            <div style={{ position: 'absolute', bottom: 16, left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: 8 }}>
+              {zoom.fotos.map((f, i) => (
+                <img key={i} src={f.url} alt=""
+                  onClick={e => { e.stopPropagation(); setZoom(z => ({ ...z, idx: i })) }}
+                  style={{ width: 52, height: 52, objectFit: 'cover', borderRadius: 6, cursor: 'pointer', border: i === zoom.idx ? '2px solid #c8922a' : '2px solid transparent', opacity: i === zoom.idx ? 1 : 0.5, transition: 'all 0.2s' }} />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+      {/* ===== FIM MODAL ZOOM ===== */}
+
       {modalSenha && (
         <ModalTrocarSenha
           usuario={usuario}
@@ -253,7 +317,7 @@ export default function Home() {
           }}
         />
       )}
- 
+
       <div className="topbar">
         <div className="topbar-brand">Portal do <span>Lojista</span></div>
         <div className="topbar-right">
@@ -289,14 +353,14 @@ export default function Home() {
           <button className="btn-sair" onClick={sair}>Sair</button>
         </div>
       </div>
- 
+
       <div className="nav-tabs">
         <div className={`nav-tab ${aba==='produtos'?'active':''}`} onClick={() => setAba('produtos')}>Produtos</div>
         {usuario.role === 'admin' && (
           <div className={`nav-tab ${aba==='admin'?'active':''}`} onClick={() => setAba('admin')}>Admin</div>
         )}
       </div>
- 
+
       {cartAberto && carrinho.length > 0 && (
         <div className="cart-panel">
           <div className="cart-header">
@@ -327,7 +391,7 @@ export default function Home() {
           </div>
         </div>
       )}
- 
+
       {aba === 'produtos' && (
         <>
           <div className="search-area">
@@ -343,14 +407,14 @@ export default function Home() {
               <option value="zero">Sem estoque</option>
             </select>
           </div>
- 
+
           <div className="content">
             <div className="stats-bar">
               <div className="stat-badge"><strong>{filtrados.length}</strong> produtos</div>
               <div className="stat-badge"><strong>{filtrados.filter(p=>p.estoque>0).length}</strong> com estoque</div>
               <div className="stat-badge"><strong>{filtrados.filter(p=>p.estoque===0).length}</strong> sem estoque</div>
             </div>
- 
+
             <div className="produtos-grid">
               {paginado.map(p => {
                 const fotos = (p.produto_fotos || []).sort((a,b) => a.ordem - b.ordem)
@@ -358,34 +422,41 @@ export default function Home() {
                 const fotoExibida = fotos[idxAtivo]
                 const eC = p.estoque === 0 ? 'est-zero' : p.estoque <= 10 ? 'est-baixo' : 'est-ok'
                 const eT = p.estoque === 0 ? 'Sem estoque' : p.estoque >= 200 ? '200+ un.' : p.estoque <= 10 ? `${p.estoque} un. (baixo)` : `${p.estoque} un.`
- 
+
                 return (
                   <div className="produto-card" key={p.id}>
                     <div className="produto-img" style={{ position: 'relative' }}>
                       {fotoExibida ? (
                         <>
-                          <img src={fotoExibida.url} alt={p.nome} />
+                          {/* Foto clicável para zoom */}
+                          <img src={fotoExibida.url} alt={p.nome}
+                            onClick={() => setZoom({ fotos, idx: idxAtivo })}
+                            style={{ cursor: 'zoom-in' }} />
+
                           {fotos.length > 1 && (
                             <>
-                              {/* Botão anterior */}
-                              <button onClick={() => setFotoAtivaP(p.id, (idxAtivo - 1 + fotos.length) % fotos.length)}
-                                style={{ position: 'absolute', left: 4, top: '50%', transform: 'translateY(-50%)', background: 'rgba(0,0,0,0.4)', border: 'none', borderRadius: '50%', width: 28, height: 28, color: '#fff', cursor: 'pointer', fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2 }}>
+                              <button onClick={e => { e.stopPropagation(); setFotoAtivaP(p.id, (idxAtivo - 1 + fotos.length) % fotos.length) }}
+                                style={{ position: 'absolute', left: 4, top: '50%', transform: 'translateY(-50%)', background: 'rgba(0,0,0,0.4)', border: 'none', borderRadius: '50%', width: 28, height: 28, color: '#fff', cursor: 'pointer', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2 }}>
                                 ‹
                               </button>
-                              {/* Botão próximo */}
-                              <button onClick={() => setFotoAtivaP(p.id, (idxAtivo + 1) % fotos.length)}
-                                style={{ position: 'absolute', right: 4, top: '50%', transform: 'translateY(-50%)', background: 'rgba(0,0,0,0.4)', border: 'none', borderRadius: '50%', width: 28, height: 28, color: '#fff', cursor: 'pointer', fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2 }}>
+                              <button onClick={e => { e.stopPropagation(); setFotoAtivaP(p.id, (idxAtivo + 1) % fotos.length) }}
+                                style={{ position: 'absolute', right: 4, top: '50%', transform: 'translateY(-50%)', background: 'rgba(0,0,0,0.4)', border: 'none', borderRadius: '50%', width: 28, height: 28, color: '#fff', cursor: 'pointer', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2 }}>
                                 ›
                               </button>
-                              {/* Indicadores */}
                               <div style={{ position: 'absolute', bottom: 6, left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: 4, zIndex: 2 }}>
                                 {fotos.map((_, i) => (
-                                  <div key={i} onClick={() => setFotoAtivaP(p.id, i)}
-                                    style={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: i === idxAtivo ? '#c8922a' : 'rgba(255,255,255,0.7)', cursor: 'pointer', transition: 'background 0.2s' }} />
+                                  <div key={i} onClick={e => { e.stopPropagation(); setFotoAtivaP(p.id, i) }}
+                                    style={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: i === idxAtivo ? '#c8922a' : 'rgba(255,255,255,0.7)', cursor: 'pointer' }} />
                                 ))}
                               </div>
                             </>
                           )}
+
+                          {/* Ícone de zoom */}
+                          <div onClick={() => setZoom({ fotos, idx: idxAtivo })}
+                            style={{ position: 'absolute', top: 8, right: 8, background: 'rgba(0,0,0,0.4)', borderRadius: '50%', width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'zoom-in', zIndex: 2, fontSize: 14 }}>
+                            🔍
+                          </div>
                         </>
                       ) : (
                         <div className="produto-img-placeholder">{catIcon(p.categoria)}</div>
@@ -430,7 +501,7 @@ export default function Home() {
                 )
               })}
             </div>
- 
+
             {totalPag > 1 && (
               <div className="paginacao">
                 <button className="pg-btn" disabled={pagina===1} onClick={() => setPagina(p=>p-1)}>← Anterior</button>
@@ -441,7 +512,7 @@ export default function Home() {
           </div>
         </>
       )}
- 
+
       {aba === 'admin' && usuario.role === 'admin' && (
         <div className="content">
           <AdminPanel onProdutoSalvo={carregarProdutos} />
@@ -450,21 +521,21 @@ export default function Home() {
     </>
   )
 }
- 
+
 function AdminPanel({ onProdutoSalvo }) {
   const [form, setForm] = useState({ codigo: '', nome: '', marca: '', categoria: '', descricao: '', preco_vista: '', preco_prazo: '', estoque: '' })
   const [salvando, setSalvando] = useState(false)
   const [msg, setMsg] = useState('')
   const [lojistas, setLojistas] = useState([])
   const [novoLojista, setNovoLojista] = useState({ nome: '', email: '', senha: '' })
- 
+
   useEffect(() => { carregarLojistas() }, [])
- 
+
   async function carregarLojistas() {
     const { data } = await supabase.from('usuarios').select('*').eq('role', 'lojista')
     if (data) setLojistas(data)
   }
- 
+
   async function salvarProduto() {
     setSalvando(true)
     const { error } = await supabase.from('produtos').upsert({
@@ -483,7 +554,7 @@ function AdminPanel({ onProdutoSalvo }) {
     setSalvando(false)
     setTimeout(() => setMsg(''), 3000)
   }
- 
+
   async function adicionarLojista() {
     const { error } = await supabase.from('usuarios').insert({ ...novoLojista, senha_hash: novoLojista.senha, role: 'lojista' })
     if (!error) {
@@ -491,7 +562,7 @@ function AdminPanel({ onProdutoSalvo }) {
       carregarLojistas()
     }
   }
- 
+
   return (
     <div className="admin-grid">
       <div className="admin-card">
@@ -534,4 +605,3 @@ function AdminPanel({ onProdutoSalvo }) {
     </div>
   )
 }
- 
