@@ -498,7 +498,7 @@ export default function Home() {
 
                       {p.marca && (
   p.marca === 'JOIE'
-    ? <img src="/logo_joie.png" alt="Joie" style={{ position:'absolute', top:8, left:8, height:36, width:36, objectFit:'contain', zIndex:2 }} />
+    ? <img src="/logo_joie.png" alt="Joie" style={{ position:'absolute', top:6, left:6, height:52, width:52, objectFit:'contain', zIndex:2 }} />
     : <span className="marca-badge">{p.marca}</span>
 )}
                       {p.categoria && <span className="cat-badge">{p.categoria}</span>}
