@@ -29,7 +29,7 @@ export default function Home() {
   const marcas = [...new Set(produtos.map(p => p.marca).filter(Boolean))].sort()
 
   const logosMarca = {
-    'JOIE': '/logo_joie.png',
+    'JOIE': 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="50" fill="%23f5a623"/><text x="50" y="67" font-family="Arial" font-size="38" font-weight="bold" fill="white" text-anchor="middle">Joie</text></svg>',
   }
 
   useEffect(() => {
