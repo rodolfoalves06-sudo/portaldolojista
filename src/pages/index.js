@@ -559,7 +559,7 @@ export default function Home() {
                 }}>
                   {logosMarca[marca] ? (
                     <img src={logosMarca[marca]} alt={marca}
-                      style={{ height: 72, width: 72, objectFit: 'contain', flexShrink: 0 }} />
+                      style={{ height: 72, width: 72, objectFit: 'contain', flexShrink: 0, borderRadius: '50%', mixBlendMode: 'multiply' }} />
                   ) : (
                     <div style={{
                       height: 72, width: 72, borderRadius: '50%',
