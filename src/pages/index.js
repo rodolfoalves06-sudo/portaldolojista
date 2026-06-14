@@ -28,6 +28,10 @@ export default function Home() {
 
   const marcas = [...new Set(produtos.map(p => p.marca).filter(Boolean))].sort()
 
+  const logosMarca = {
+    'JOIE': '/logo_joie.png',
+  }
+
   useEffect(() => {
     const u = localStorage.getItem('usuario_portal')
     if (u) setUsuario(JSON.parse(u))
@@ -221,8 +225,18 @@ export default function Home() {
     })
   }
 
-  const paginado = filtrados.slice((pagina - 1) * POR_PAG, pagina * POR_PAG)
   const totalPag = Math.ceil(filtrados.length / POR_PAG)
+
+  // Agrupa produtos filtrados por marca
+  function getProdutosPorMarca() {
+    const grupos = {}
+    filtrados.forEach(p => {
+      const m = p.marca || 'Sem marca'
+      if (!grupos[m]) grupos[m] = []
+      grupos[m].push(p)
+    })
+    return grupos
+  }
 
   function catIcon(cat = '') {
     if (cat.includes('CARRINHO')) return '🛒'
@@ -232,6 +246,91 @@ export default function Home() {
     if (cat.includes('BERCO') || cat.includes('BERÇO')) return '🛏️'
     if (cat.includes('REFEICAO') || cat.includes('REFEIÇÃO')) return '🍽️'
     return '💺'
+  }
+
+  function renderCard(p) {
+    const fotos = (p.produto_fotos || []).sort((a,b) => a.ordem - b.ordem)
+    const videoUrl = videosExistentes[p.codigo] || null
+    const totalSlides = fotos.length + (videoUrl ? 1 : 0)
+    const idxAtivo = getFotoAtiva(p.id)
+    const isVideoAtivo = videoUrl && idxAtivo === fotos.length
+    const fotoExibida = !isVideoAtivo ? fotos[idxAtivo] : null
+    const eC = p.estoque === 0 ? 'est-zero' : p.estoque <= 10 ? 'est-baixo' : 'est-ok'
+    const eT = p.estoque === 0 ? 'Sem estoque' : p.estoque >= 200 ? '200+ un.' : p.estoque <= 10 ? `${p.estoque} un. (baixo)` : `${p.estoque} un.`
+
+    return (
+      <div className="produto-card" key={p.id}>
+        <div className="produto-img" style={{ position: 'relative' }}>
+          {totalSlides === 0 ? (
+            <div className="produto-img-placeholder">{catIcon(p.categoria)}</div>
+          ) : isVideoAtivo ? (
+            <div style={{ width: '100%', height: '100%', background: '#0f2744', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 8, cursor: 'pointer', borderRadius: 8 }}
+              onClick={() => setZoom({ fotos, idx: 0, isVideo: true, videoUrl })}>
+              <div style={{ fontSize: 40, color: '#c8922a' }}>▶</div>
+              <span style={{ color: '#fff', fontSize: 12, fontWeight: 600 }}>Ver vídeo</span>
+            </div>
+          ) : (
+            <>
+              <img src={fotoExibida.url} alt={p.nome}
+                onClick={() => setZoom({ fotos, idx: idxAtivo, isVideo: false, videoUrl })}
+                style={{ cursor: 'zoom-in' }} />
+              <div onClick={() => setZoom({ fotos, idx: idxAtivo, isVideo: false, videoUrl })}
+                style={{ position: 'absolute', top: 8, right: 8, background: 'rgba(0,0,0,0.4)', borderRadius: '50%', width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'zoom-in', zIndex: 2, fontSize: 14 }}>
+                🔍
+              </div>
+            </>
+          )}
+
+          {totalSlides > 1 && (
+            <>
+              <button onClick={e => { e.stopPropagation(); setFotoAtivaP(p.id, (idxAtivo - 1 + totalSlides) % totalSlides) }}
+                style={{ position: 'absolute', left: 4, top: '50%', transform: 'translateY(-50%)', background: 'rgba(0,0,0,0.4)', border: 'none', borderRadius: '50%', width: 28, height: 28, color: '#fff', cursor: 'pointer', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2 }}>‹</button>
+              <button onClick={e => { e.stopPropagation(); setFotoAtivaP(p.id, (idxAtivo + 1) % totalSlides) }}
+                style={{ position: 'absolute', right: 4, top: '50%', transform: 'translateY(-50%)', background: 'rgba(0,0,0,0.4)', border: 'none', borderRadius: '50%', width: 28, height: 28, color: '#fff', cursor: 'pointer', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2 }}>›</button>
+              <div style={{ position: 'absolute', bottom: 6, left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: 4, zIndex: 2 }}>
+                {Array.from({ length: totalSlides }).map((_, i) => (
+                  <div key={i} onClick={e => { e.stopPropagation(); setFotoAtivaP(p.id, i) }}
+                    style={{ width: i === fotos.length ? 14 : 6, height: 6, borderRadius: i === fotos.length ? 3 : '50%', backgroundColor: i === idxAtivo ? '#c8922a' : 'rgba(255,255,255,0.7)', cursor: 'pointer', transition: 'all 0.2s' }} />
+                ))}
+              </div>
+            </>
+          )}
+
+          {p.marca && (
+            logosMarca[p.marca]
+              ? <img src={logosMarca[p.marca]} alt={p.marca} style={{ position:'absolute', top:6, left:6, height:52, width:52, objectFit:'contain', zIndex:2 }} />
+              : <span className="marca-badge">{p.marca}</span>
+          )}
+          {p.categoria && <span className="cat-badge">{p.categoria}</span>}
+        </div>
+        <div className="produto-body">
+          <div className="produto-nome">{p.nome.replace(/^SCD-/, '')}</div>
+          <div className="produto-cod">{p.codigo}</div>
+          <div className="precos">
+            <div className="preco-box">
+              <span className="preco-label">À vista</span>
+              {p.preco_vista ? <span className="preco-vista">R$ {p.preco_vista.toLocaleString('pt-BR')}</span> : <span className="preco-indefinido">A definir</span>}
+            </div>
+            <div className="preco-box">
+              <span className="preco-label">A prazo</span>
+              {p.preco_prazo ? <span className="preco-prazo">R$ {p.preco_prazo.toLocaleString('pt-BR')}</span> : <span className="preco-indefinido">A definir</span>}
+            </div>
+          </div>
+          <span className={`estoque-badge ${eC}`}><span className="est-dot"></span>{eT}</span>
+          <div className="add-row">
+            <div className="qtd-ctrl">
+              <button className="qtd-btn" onClick={() => setQtd(p.id, getQtd(p.id) - 1)}>−</button>
+              <input className="qtd-num" type="number" value={getQtd(p.id)} min={1}
+                onChange={e => setQtd(p.id, parseInt(e.target.value)||1)} />
+              <button className="qtd-btn" onClick={() => setQtd(p.id, getQtd(p.id) + 1)}>+</button>
+            </div>
+            <button className="btn-add" disabled={p.estoque===0} onClick={() => addCarrinho(p, getQtd(p.id))}>
+              {p.estoque===0 ? 'Sem estoque' : '+ Pedido'}
+            </button>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   if (!usuario) return (
@@ -269,6 +368,9 @@ export default function Home() {
     </>
   )
 
+  const gruposMarca = getProdutosPorMarca()
+  const marcasExibidas = Object.keys(gruposMarca).sort()
+
   return (
     <>
       <Head>
@@ -290,7 +392,6 @@ export default function Home() {
             {zoom.isVideo ? '▶ Vídeo' : `${zoom.idx + 1} / ${zoom.fotos.length}${zoom.videoUrl ? ' + vídeo' : ''}`}
           </div>
 
-          {/* Botão anterior */}
           <button onClick={e => {
             e.stopPropagation()
             if (zoom.isVideo) setZoom(z => ({ ...z, isVideo: false, idx: z.fotos.length - 1 }))
@@ -300,7 +401,6 @@ export default function Home() {
             ‹
           </button>
 
-          {/* Conteúdo principal */}
           {zoom.isVideo ? (
             <video src={zoom.videoUrl} controls autoPlay onClick={e => e.stopPropagation()}
               style={{ maxWidth: '90vw', maxHeight: '75vh', borderRadius: 8, boxShadow: '0 20px 60px rgba(0,0,0,0.5)' }} />
@@ -310,7 +410,6 @@ export default function Home() {
               style={{ maxWidth: '90vw', maxHeight: '75vh', objectFit: 'contain', borderRadius: 8, boxShadow: '0 20px 60px rgba(0,0,0,0.5)' }} />
           )}
 
-          {/* Botão próximo */}
           <button onClick={e => {
             e.stopPropagation()
             if (!zoom.isVideo && zoom.idx < zoom.fotos.length - 1) setZoom(z => ({ ...z, idx: z.idx + 1 }))
@@ -320,7 +419,6 @@ export default function Home() {
             ›
           </button>
 
-          {/* Miniaturas + vídeo */}
           <div style={{ position: 'absolute', bottom: 16, left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: 8, alignItems: 'center' }}
             onClick={e => e.stopPropagation()}>
             {zoom.fotos.map((f, i) => (
@@ -446,101 +544,48 @@ export default function Home() {
               <div className="stat-badge"><strong>{filtrados.filter(p=>p.estoque===0).length}</strong> sem estoque</div>
             </div>
 
-            <div className="produtos-grid">
-              {paginado.map(p => {
-                const fotos = (p.produto_fotos || []).sort((a,b) => a.ordem - b.ordem)
-                const videoUrl = videosExistentes[p.codigo] || null
-                const totalSlides = fotos.length + (videoUrl ? 1 : 0)
-                const idxAtivo = getFotoAtiva(p.id)
-                const isVideoAtivo = videoUrl && idxAtivo === fotos.length
-                const fotoExibida = !isVideoAtivo ? fotos[idxAtivo] : null
-                const eC = p.estoque === 0 ? 'est-zero' : p.estoque <= 10 ? 'est-baixo' : 'est-ok'
-                const eT = p.estoque === 0 ? 'Sem estoque' : p.estoque >= 200 ? '200+ un.' : p.estoque <= 10 ? `${p.estoque} un. (baixo)` : `${p.estoque} un.`
-
-                return (
-                  <div className="produto-card" key={p.id}>
-                    <div className="produto-img" style={{ position: 'relative' }}>
-                      {totalSlides === 0 ? (
-                        <div className="produto-img-placeholder">{catIcon(p.categoria)}</div>
-                      ) : isVideoAtivo ? (
-                        /* Slide de vídeo no card */
-                        <div style={{ width: '100%', height: '100%', background: '#0f2744', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 8, cursor: 'pointer', borderRadius: 8 }}
-                          onClick={() => setZoom({ fotos, idx: 0, isVideo: true, videoUrl })}>
-                          <div style={{ fontSize: 40, color: '#c8922a' }}>▶</div>
-                          <span style={{ color: '#fff', fontSize: 12, fontWeight: 600 }}>Ver vídeo</span>
-                        </div>
-                      ) : (
-                        <>
-                          <img src={fotoExibida.url} alt={p.nome}
-                            onClick={() => setZoom({ fotos, idx: idxAtivo, isVideo: false, videoUrl })}
-                            style={{ cursor: 'zoom-in' }} />
-                          <div onClick={() => setZoom({ fotos, idx: idxAtivo, isVideo: false, videoUrl })}
-                            style={{ position: 'absolute', top: 8, right: 8, background: 'rgba(0,0,0,0.4)', borderRadius: '50%', width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'zoom-in', zIndex: 2, fontSize: 14 }}>
-                            🔍
-                          </div>
-                        </>
-                      )}
-
-                      {totalSlides > 1 && (
-                        <>
-                          <button onClick={e => { e.stopPropagation(); setFotoAtivaP(p.id, (idxAtivo - 1 + totalSlides) % totalSlides) }}
-                            style={{ position: 'absolute', left: 4, top: '50%', transform: 'translateY(-50%)', background: 'rgba(0,0,0,0.4)', border: 'none', borderRadius: '50%', width: 28, height: 28, color: '#fff', cursor: 'pointer', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2 }}>‹</button>
-                          <button onClick={e => { e.stopPropagation(); setFotoAtivaP(p.id, (idxAtivo + 1) % totalSlides) }}
-                            style={{ position: 'absolute', right: 4, top: '50%', transform: 'translateY(-50%)', background: 'rgba(0,0,0,0.4)', border: 'none', borderRadius: '50%', width: 28, height: 28, color: '#fff', cursor: 'pointer', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2 }}>›</button>
-                          <div style={{ position: 'absolute', bottom: 6, left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: 4, zIndex: 2 }}>
-                            {Array.from({ length: totalSlides }).map((_, i) => (
-                              <div key={i} onClick={e => { e.stopPropagation(); setFotoAtivaP(p.id, i) }}
-                                style={{ width: i === fotos.length ? 14 : 6, height: 6, borderRadius: i === fotos.length ? 3 : '50%', backgroundColor: i === idxAtivo ? '#c8922a' : 'rgba(255,255,255,0.7)', cursor: 'pointer', transition: 'all 0.2s' }} />
-                            ))}
-                          </div>
-                        </>
-                      )}
-
-                      {p.marca && (
-  p.marca === 'JOIE'
-    ? <img src="/logo_joie.png" alt="Joie" style={{ position:'absolute', top:6, left:6, height:52, width:52, objectFit:'contain', zIndex:2 }} />
-    : <span className="marca-badge">{p.marca}</span>
-)}
-                      {p.categoria && <span className="cat-badge">{p.categoria}</span>}
+            {marcasExibidas.map(marca => (
+              <div key={marca} style={{ marginBottom: 48 }}>
+                {/* Cabeçalho da marca */}
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 20,
+                  marginBottom: 20,
+                  padding: '16px 20px',
+                  background: 'linear-gradient(135deg, #0f2744 0%, #1a3a5c 100%)',
+                  borderRadius: 12,
+                  boxShadow: '0 4px 16px rgba(0,0,0,0.15)'
+                }}>
+                  {logosMarca[marca] ? (
+                    <img src={logosMarca[marca]} alt={marca}
+                      style={{ height: 72, width: 72, objectFit: 'contain', flexShrink: 0 }} />
+                  ) : (
+                    <div style={{
+                      height: 72, width: 72, borderRadius: '50%',
+                      background: '#c8922a', display: 'flex', alignItems: 'center',
+                      justifyContent: 'center', flexShrink: 0
+                    }}>
+                      <span style={{ color: '#fff', fontWeight: 800, fontSize: 18 }}>
+                        {marca.substring(0, 2)}
+                      </span>
                     </div>
-                    <div className="produto-body">
-                      <div className="produto-nome">{p.nome.replace(/^SCD-/, '')}</div>
-                      <div className="produto-cod">{p.codigo}</div>
-                      <div className="precos">
-                        <div className="preco-box">
-                          <span className="preco-label">À vista</span>
-                          {p.preco_vista ? <span className="preco-vista">R$ {p.preco_vista.toLocaleString('pt-BR')}</span> : <span className="preco-indefinido">A definir</span>}
-                        </div>
-                        <div className="preco-box">
-                          <span className="preco-label">A prazo</span>
-                          {p.preco_prazo ? <span className="preco-prazo">R$ {p.preco_prazo.toLocaleString('pt-BR')}</span> : <span className="preco-indefinido">A definir</span>}
-                        </div>
-                      </div>
-                      <span className={`estoque-badge ${eC}`}><span className="est-dot"></span>{eT}</span>
-                      <div className="add-row">
-                        <div className="qtd-ctrl">
-                          <button className="qtd-btn" onClick={() => setQtd(p.id, getQtd(p.id) - 1)}>−</button>
-                          <input className="qtd-num" type="number" value={getQtd(p.id)} min={1}
-                            onChange={e => setQtd(p.id, parseInt(e.target.value)||1)} />
-                          <button className="qtd-btn" onClick={() => setQtd(p.id, getQtd(p.id) + 1)}>+</button>
-                        </div>
-                        <button className="btn-add" disabled={p.estoque===0} onClick={() => addCarrinho(p, getQtd(p.id))}>
-                          {p.estoque===0 ? 'Sem estoque' : '+ Pedido'}
-                        </button>
-                      </div>
-                    </div>
+                  )}
+                  <div>
+                    <h2 style={{ margin: 0, color: '#fff', fontSize: 22, fontWeight: 700 }}>{marca}</h2>
+                    <p style={{ margin: 0, color: '#c8922a', fontSize: 14 }}>
+                      {gruposMarca[marca].length} produto{gruposMarca[marca].length !== 1 ? 's' : ''}
+                      {' · '}{gruposMarca[marca].filter(p => p.estoque > 0).length} com estoque
+                    </p>
                   </div>
-                )
-              })}
-            </div>
+                </div>
 
-            {totalPag > 1 && (
-              <div className="paginacao">
-                <button className="pg-btn" disabled={pagina===1} onClick={() => setPagina(p=>p-1)}>← Anterior</button>
-                <span className="pg-info">Página {pagina} de {totalPag}</span>
-                <button className="pg-btn" disabled={pagina===totalPag} onClick={() => setPagina(p=>p+1)}>Próxima →</button>
+                {/* Grid de produtos da marca */}
+                <div className="produtos-grid">
+                  {gruposMarca[marca].map(p => renderCard(p))}
+                </div>
               </div>
-            )}
+            ))}
           </div>
         </>
       )}
