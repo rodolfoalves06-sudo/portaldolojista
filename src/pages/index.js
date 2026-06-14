@@ -496,7 +496,11 @@ export default function Home() {
                         </>
                       )}
 
-                      {p.marca && <span className="marca-badge">{p.marca}</span>}
+                      {p.marca && (
+  p.marca === 'JOIE'
+    ? <img src="/logo_joie.png" alt="Joie" style={{ position:'absolute', top:8, left:8, height:36, width:36, objectFit:'contain', zIndex:2 }} />
+    : <span className="marca-badge">{p.marca}</span>
+)}
                       {p.categoria && <span className="cat-badge">{p.categoria}</span>}
                     </div>
                     <div className="produto-body">
