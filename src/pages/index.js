@@ -28,6 +28,7 @@ export default function Home() {
 
   const logosMarca = {
     'JOIE': '/logo_joie.png',
+    'NUNA': '/logo_nuna.png',
   }
 
   const coresMarca = {
