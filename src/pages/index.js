@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import Head from 'next/head'
 import ModalTrocarSenha from '../components/ModalTrocarSenha'
@@ -12,24 +12,29 @@ export default function Home() {
   const [produtos, setProdutos] = useState([])
   const [filtrados, setFiltrados] = useState([])
   const [busca, setBusca] = useState('')
-  const [filtroMarca, setFiltroMarca] = useState('')
   const [filtroEst, setFiltroEst] = useState('')
   const [carrinho, setCarrinho] = useState([])
   const [cartAberto, setCartAberto] = useState(false)
   const [aba, setAba] = useState('produtos')
-  const [pagina, setPagina] = useState(1)
   const [menuUsuario, setMenuUsuario] = useState(false)
   const [modalSenha, setModalSenha] = useState(false)
   const [qtds, setQtds] = useState({})
   const [fotoAtiva, setFotoAtiva] = useState({})
   const [zoom, setZoom] = useState(null)
   const [videosExistentes, setVideosExistentes] = useState({})
-  const POR_PAG = 20
+  const [marcaSelecionada, setMarcaSelecionada] = useState(null)
 
   const marcas = [...new Set(produtos.map(p => p.marca).filter(Boolean))].sort()
 
   const logosMarca = {
     'JOIE': '/logo_joie.png',
+  }
+
+  const coresMarca = {
+    'JOIE': '#f5a623',
+    'AVANTI': '#1a3a6c',
+    'NUNA': '#2d6a4f',
+    'PREMIUM BABY': '#c8922a',
   }
 
   useEffect(() => {
@@ -43,7 +48,7 @@ export default function Home() {
 
   useEffect(() => {
     filtrar()
-  }, [produtos, busca, filtroMarca, filtroEst])
+  }, [produtos, busca, filtroEst, marcaSelecionada])
 
   useEffect(() => {
     function fecharMenu(e) {
@@ -97,7 +102,7 @@ export default function Home() {
 
   function filtrar() {
     let r = [...produtos]
-    if (filtroMarca) r = r.filter(p => p.marca === filtroMarca)
+    if (marcaSelecionada) r = r.filter(p => p.marca === marcaSelecionada)
     if (filtroEst === 'disp') r = r.filter(p => p.estoque > 0)
     if (filtroEst === 'zero') r = r.filter(p => p.estoque === 0)
     if (busca) {
@@ -110,7 +115,6 @@ export default function Home() {
       )
     }
     setFiltrados(r)
-    setPagina(1)
   }
 
   function getQtd(id) { return qtds[id] || 1 }
@@ -223,19 +227,6 @@ export default function Home() {
         doc.save(`pedido-${new Date().toLocaleDateString('pt-BR').replace(/\//g, '-')}.pdf`)
       })
     })
-  }
-
-  const totalPag = Math.ceil(filtrados.length / POR_PAG)
-
-  // Agrupa produtos filtrados por marca
-  function getProdutosPorMarca() {
-    const grupos = {}
-    filtrados.forEach(p => {
-      const m = p.marca || 'Sem marca'
-      if (!grupos[m]) grupos[m] = []
-      grupos[m].push(p)
-    })
-    return grupos
   }
 
   function catIcon(cat = '') {
@@ -368,9 +359,6 @@ export default function Home() {
     </>
   )
 
-  const gruposMarca = getProdutosPorMarca()
-  const marcasExibidas = Object.keys(gruposMarca).sort()
-
   return (
     <>
       <Head>
@@ -380,79 +368,47 @@ export default function Home() {
         <meta name="theme-color" content="#0f2744" />
       </Head>
 
-      {/* ===== MODAL ZOOM + VÍDEO ===== */}
       {zoom && (
         <div onClick={() => setZoom(null)}
           style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.92)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column' }}>
-
           <button onClick={() => setZoom(null)}
             style={{ position: 'absolute', top: 16, right: 20, background: 'none', border: 'none', color: '#fff', fontSize: 36, cursor: 'pointer', zIndex: 2001 }}>×</button>
-
           <div style={{ position: 'absolute', top: 20, left: '50%', transform: 'translateX(-50%)', color: '#fff', fontSize: 14, opacity: 0.8 }}>
             {zoom.isVideo ? '▶ Vídeo' : `${zoom.idx + 1} / ${zoom.fotos.length}${zoom.videoUrl ? ' + vídeo' : ''}`}
           </div>
-
-          <button onClick={e => {
-            e.stopPropagation()
-            if (zoom.isVideo) setZoom(z => ({ ...z, isVideo: false, idx: z.fotos.length - 1 }))
-            else if (zoom.idx > 0) setZoom(z => ({ ...z, idx: z.idx - 1 }))
-          }}
-            style={{ position: 'absolute', left: 16, background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: '50%', width: 48, height: 48, color: '#fff', cursor: 'pointer', fontSize: 24, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2001, opacity: (zoom.isVideo || zoom.idx > 0) ? 1 : 0.3 }}>
-            ‹
-          </button>
-
+          <button onClick={e => { e.stopPropagation(); if (zoom.isVideo) setZoom(z => ({ ...z, isVideo: false, idx: z.fotos.length - 1 })); else if (zoom.idx > 0) setZoom(z => ({ ...z, idx: z.idx - 1 })) }}
+            style={{ position: 'absolute', left: 16, background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: '50%', width: 48, height: 48, color: '#fff', cursor: 'pointer', fontSize: 24, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2001, opacity: (zoom.isVideo || zoom.idx > 0) ? 1 : 0.3 }}>‹</button>
           {zoom.isVideo ? (
             <video src={zoom.videoUrl} controls autoPlay onClick={e => e.stopPropagation()}
               style={{ maxWidth: '90vw', maxHeight: '75vh', borderRadius: 8, boxShadow: '0 20px 60px rgba(0,0,0,0.5)' }} />
           ) : (
-            <img src={zoom.fotos[zoom.idx].url} alt=""
-              onClick={e => e.stopPropagation()}
+            <img src={zoom.fotos[zoom.idx].url} alt="" onClick={e => e.stopPropagation()}
               style={{ maxWidth: '90vw', maxHeight: '75vh', objectFit: 'contain', borderRadius: 8, boxShadow: '0 20px 60px rgba(0,0,0,0.5)' }} />
           )}
-
-          <button onClick={e => {
-            e.stopPropagation()
-            if (!zoom.isVideo && zoom.idx < zoom.fotos.length - 1) setZoom(z => ({ ...z, idx: z.idx + 1 }))
-            else if (!zoom.isVideo && zoom.videoUrl) setZoom(z => ({ ...z, isVideo: true }))
-          }}
-            style={{ position: 'absolute', right: 16, background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: '50%', width: 48, height: 48, color: '#fff', cursor: 'pointer', fontSize: 24, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2001, opacity: (!zoom.isVideo && (zoom.idx < zoom.fotos.length - 1 || zoom.videoUrl)) ? 1 : 0.3 }}>
-            ›
-          </button>
-
-          <div style={{ position: 'absolute', bottom: 16, left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: 8, alignItems: 'center' }}
-            onClick={e => e.stopPropagation()}>
+          <button onClick={e => { e.stopPropagation(); if (!zoom.isVideo && zoom.idx < zoom.fotos.length - 1) setZoom(z => ({ ...z, idx: z.idx + 1 })); else if (!zoom.isVideo && zoom.videoUrl) setZoom(z => ({ ...z, isVideo: true })) }}
+            style={{ position: 'absolute', right: 16, background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: '50%', width: 48, height: 48, color: '#fff', cursor: 'pointer', fontSize: 24, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2001, opacity: (!zoom.isVideo && (zoom.idx < zoom.fotos.length - 1 || zoom.videoUrl)) ? 1 : 0.3 }}>›</button>
+          <div style={{ position: 'absolute', bottom: 16, left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: 8, alignItems: 'center' }} onClick={e => e.stopPropagation()}>
             {zoom.fotos.map((f, i) => (
-              <img key={i} src={f.url} alt=""
-                onClick={() => setZoom(z => ({ ...z, idx: i, isVideo: false }))}
+              <img key={i} src={f.url} alt="" onClick={() => setZoom(z => ({ ...z, idx: i, isVideo: false }))}
                 style={{ width: 52, height: 52, objectFit: 'cover', borderRadius: 6, cursor: 'pointer', border: !zoom.isVideo && i === zoom.idx ? '2px solid #c8922a' : '2px solid transparent', opacity: !zoom.isVideo && i === zoom.idx ? 1 : 0.5 }} />
             ))}
             {zoom.videoUrl && (
               <div onClick={() => setZoom(z => ({ ...z, isVideo: true }))}
-                style={{ width: 52, height: 52, borderRadius: 6, cursor: 'pointer', border: zoom.isVideo ? '2px solid #c8922a' : '2px solid transparent', opacity: zoom.isVideo ? 1 : 0.5, background: '#1a1a2e', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22 }}>
-                ▶
-              </div>
+                style={{ width: 52, height: 52, borderRadius: 6, cursor: 'pointer', border: zoom.isVideo ? '2px solid #c8922a' : '2px solid transparent', opacity: zoom.isVideo ? 1 : 0.5, background: '#1a1a2e', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22 }}>▶</div>
             )}
           </div>
         </div>
       )}
 
       {modalSenha && (
-        <ModalTrocarSenha
-          usuario={usuario}
-          onFechar={(usuarioAtualizado) => {
-            if (usuarioAtualizado) setUsuario(usuarioAtualizado)
-            setModalSenha(false)
-            setMenuUsuario(false)
-          }}
-        />
+        <ModalTrocarSenha usuario={usuario} onFechar={(usuarioAtualizado) => { if (usuarioAtualizado) setUsuario(usuarioAtualizado); setModalSenha(false); setMenuUsuario(false) }} />
       )}
 
       <div className="topbar">
         <div className="topbar-brand">Portal do <span>Lojista</span></div>
         <div className="topbar-right">
           <div className="user-menu-wrapper" style={{ position: 'relative' }}>
-            <div className="user-pill" style={{ cursor: 'pointer', userSelect: 'none' }}
-              onClick={() => setMenuUsuario(v => !v)}>
+            <div className="user-pill" style={{ cursor: 'pointer', userSelect: 'none' }} onClick={() => setMenuUsuario(v => !v)}>
               {usuario.nome} ▾
             </div>
             {menuUsuario && (
@@ -522,72 +478,82 @@ export default function Home() {
       )}
 
       {aba === 'produtos' && (
-        <>
-          <div className="search-area">
-            <input className="search-input" placeholder="Buscar por nome, código ou marca..."
-              value={busca} onChange={e => setBusca(e.target.value)} />
-            <select className="filter-select" value={filtroMarca} onChange={e => setFiltroMarca(e.target.value)}>
-              <option value="">Todas as marcas</option>
-              {marcas.map(m => <option key={m}>{m}</option>)}
-            </select>
-            <select className="filter-select" value={filtroEst} onChange={e => setFiltroEst(e.target.value)}>
-              <option value="">Todo estoque</option>
-              <option value="disp">Com estoque</option>
-              <option value="zero">Sem estoque</option>
-            </select>
-          </div>
-
-          <div className="content">
-            <div className="stats-bar">
-              <div className="stat-badge"><strong>{filtrados.length}</strong> produtos</div>
-              <div className="stat-badge"><strong>{filtrados.filter(p=>p.estoque>0).length}</strong> com estoque</div>
-              <div className="stat-badge"><strong>{filtrados.filter(p=>p.estoque===0).length}</strong> sem estoque</div>
-            </div>
-
-            {marcasExibidas.map(marca => (
-              <div key={marca} style={{ marginBottom: 48 }}>
-                {/* Cabeçalho da marca */}
-                <div style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 20,
-                  marginBottom: 20,
-                  padding: '16px 20px',
-                  background: 'linear-gradient(135deg, #0f2744 0%, #1a3a5c 100%)',
-                  borderRadius: 12,
-                  boxShadow: '0 4px 16px rgba(0,0,0,0.15)'
-                }}>
-                  {logosMarca[marca] ? (
-                    <img src={logosMarca[marca]} alt={marca}
-                      style={{ height: 100, width: 100, objectFit: 'contain', flexShrink: 0 }} />
-                  ) : (
-                    <div style={{
-                      height: 100, width: 100, borderRadius: '50%',
-                      background: '#c8922a', display: 'flex', alignItems: 'center',
-                      justifyContent: 'center', flexShrink: 0
-                    }}>
-                      <span style={{ color: '#fff', fontWeight: 800, fontSize: 18 }}>
-                        {marca.substring(0, 2)}
-                      </span>
+        <div className="content">
+          {/* TELA DE SELEÇÃO DE MARCA */}
+          {!marcaSelecionada ? (
+            <div>
+              <h2 style={{ textAlign: 'center', color: '#0f2744', fontSize: 24, fontWeight: 600, margin: '32px 0 8px' }}>
+                Selecione uma marca
+              </h2>
+              <p style={{ textAlign: 'center', color: '#9ca3af', fontSize: 14, marginBottom: 40 }}>
+                Clique no logo para ver os produtos
+              </p>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 24, maxWidth: 900, margin: '0 auto' }}>
+                {marcas.map(marca => {
+                  const qtdProdutos = produtos.filter(p => p.marca === marca).length
+                  const qtdEstoque = produtos.filter(p => p.marca === marca && p.estoque > 0).length
+                  const cor = coresMarca[marca] || '#0f2744'
+                  return (
+                    <div key={marca} onClick={() => setMarcaSelecionada(marca)}
+                      style={{ cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', padding: 32, background: '#fff', borderRadius: 16, border: '2px solid #f3f4f6', transition: 'all 0.2s', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}
+                      onMouseOver={e => { e.currentTarget.style.transform = 'translateY(-4px)'; e.currentTarget.style.boxShadow = '0 8px 24px rgba(0,0,0,0.12)'; e.currentTarget.style.borderColor = cor }}
+                      onMouseOut={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.06)'; e.currentTarget.style.borderColor = '#f3f4f6' }}>
+                      {logosMarca[marca] ? (
+                        <img src={logosMarca[marca]} alt={marca} style={{ width: 120, height: 120, objectFit: 'contain', marginBottom: 16 }} />
+                      ) : (
+                        <div style={{ width: 120, height: 120, borderRadius: '50%', background: cor, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
+                          <span style={{ color: '#fff', fontWeight: 800, fontSize: 32 }}>{marca.substring(0, 2)}</span>
+                        </div>
+                      )}
+                      <h3 style={{ margin: '0 0 6px', color: '#0f2744', fontSize: 16, fontWeight: 700 }}>{marca}</h3>
+                      <p style={{ margin: 0, color: '#9ca3af', fontSize: 13 }}>{qtdProdutos} produtos · {qtdEstoque} com estoque</p>
                     </div>
-                  )}
-                  <div>
-                    <h2 style={{ margin: 0, color: '#fff', fontSize: 22, fontWeight: 700 }}>{marca}</h2>
-                    <p style={{ margin: 0, color: '#c8922a', fontSize: 14 }}>
-                      {gruposMarca[marca].length} produto{gruposMarca[marca].length !== 1 ? 's' : ''}
-                      {' · '}{gruposMarca[marca].filter(p => p.estoque > 0).length} com estoque
-                    </p>
+                  )
+                })}
+              </div>
+            </div>
+          ) : (
+            /* TELA DE PRODUTOS DA MARCA */
+            <div>
+              {/* Cabeçalho da marca */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 24, padding: '16px 20px', background: 'linear-gradient(135deg, #0f2744 0%, #1a3a5c 100%)', borderRadius: 12 }}>
+                <button onClick={() => { setMarcaSelecionada(null); setBusca(''); setFiltroEst('') }}
+                  style={{ background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: 8, color: '#fff', padding: '8px 14px', cursor: 'pointer', fontSize: 14, display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+                  ← Voltar
+                </button>
+                {logosMarca[marcaSelecionada] ? (
+                  <img src={logosMarca[marcaSelecionada]} alt={marcaSelecionada} style={{ height: 64, width: 64, objectFit: 'contain', flexShrink: 0 }} />
+                ) : (
+                  <div style={{ height: 64, width: 64, borderRadius: '50%', background: coresMarca[marcaSelecionada] || '#c8922a', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <span style={{ color: '#fff', fontWeight: 800, fontSize: 20 }}>{marcaSelecionada.substring(0, 2)}</span>
                   </div>
-                </div>
-
-                {/* Grid de produtos da marca */}
-                <div className="produtos-grid">
-                  {gruposMarca[marca].map(p => renderCard(p))}
+                )}
+                <div>
+                  <h2 style={{ margin: 0, color: '#fff', fontSize: 22, fontWeight: 700 }}>{marcaSelecionada}</h2>
+                  <p style={{ margin: 0, color: '#c8922a', fontSize: 14 }}>
+                    {filtrados.length} produtos · {filtrados.filter(p => p.estoque > 0).length} com estoque
+                  </p>
                 </div>
               </div>
-            ))}
-          </div>
-        </>
+
+              {/* Filtros */}
+              <div className="search-area" style={{ marginBottom: 16 }}>
+                <input className="search-input" placeholder="Buscar por nome ou código..."
+                  value={busca} onChange={e => setBusca(e.target.value)} />
+                <select className="filter-select" value={filtroEst} onChange={e => setFiltroEst(e.target.value)}>
+                  <option value="">Todo estoque</option>
+                  <option value="disp">Com estoque</option>
+                  <option value="zero">Sem estoque</option>
+                </select>
+              </div>
+
+              {/* Grid de produtos */}
+              <div className="produtos-grid">
+                {filtrados.map(p => renderCard(p))}
+              </div>
+            </div>
+          )}
+        </div>
       )}
 
       {aba === 'admin' && usuario.role === 'admin' && (
