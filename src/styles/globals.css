@@ -671,4 +671,9 @@ body {
 
 .logo-girando {
   animation: girarLogo 3s linear infinite;
+  transform-style: preserve-3d;
+}
+
+.logo-girando-wrapper {
+  perspective: 600px;
 }
