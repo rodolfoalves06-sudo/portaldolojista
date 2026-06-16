@@ -502,7 +502,7 @@ export default function Home() {
                       onMouseOver={e => { e.currentTarget.style.transform = 'translateY(-4px)'; e.currentTarget.style.boxShadow = '0 8px 24px rgba(0,0,0,0.12)'; e.currentTarget.style.borderColor = cor }}
                       onMouseOut={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.06)'; e.currentTarget.style.borderColor = '#f3f4f6' }}>
                       {logosMarca[marca] ? (
-                        <img src={logosMarca[marca]} alt={marca} style={{ width: 120, height: 120, objectFit: 'contain', marginBottom: 16 }} />
+                        <img src={logosMarca[marca]} alt={marca} className="logo-girando" style={{ width: 120, height: 120, objectFit: 'contain', marginBottom: 16 }} />
                       ) : (
                         <div style={{ width: 120, height: 120, borderRadius: '50%', background: cor, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
                           <span style={{ color: '#fff', fontWeight: 800, fontSize: 32 }}>{marca.substring(0, 2)}</span>

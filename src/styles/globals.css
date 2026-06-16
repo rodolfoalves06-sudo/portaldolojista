@@ -664,3 +664,11 @@ body {
 @media (max-width: 400px) {
   .produtos-grid { grid-template-columns: 1fr; }
 }
+@keyframes girarLogo {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.logo-girando {
+  animation: girarLogo 3s linear infinite;
+}
