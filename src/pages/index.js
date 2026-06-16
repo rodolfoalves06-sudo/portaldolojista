@@ -27,7 +27,8 @@ export default function Home() {
   const marcas = [...new Set(produtos.map(p => p.marca).filter(Boolean))].sort()
 
   const logosMarca = {
-    'JOIE': '/logo_joie.png',
+    'AVANTI': '/logo_avanti.png',
+'JOIE': '/logo_joie.png',
     'NUNA': '/logo_nuna.png',
     'PREMIUM BABY': '/logo_premium_baby.png',
   }
